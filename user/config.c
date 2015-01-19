@@ -6,6 +6,7 @@
 #include "mem.h"
 #include "osapi.h"
 #include "driver/uart.h"
+#include "driver/gpio16.h"
 
 #include "config.h"
 
@@ -267,6 +268,14 @@ void config_cmd_ap(struct espconn *conn, uint8_t argc, char *argv[]) {
 	}
 }
 
+// spaces are not supported in the ssid or password
+void io_reset(struct espconn *conn, uint8_t argc, char *argv[]) {
+	gpio16_output_set(0);
+	os_delay_us(1000000L);
+	gpio16_output_set(1);
+	espconn_sent(conn, MSG_OK, strlen(MSG_OK));
+}
+
 const config_commands_t config_commands[] = { 
 		{ "RESET", &config_cmd_reset }, 
 		{ "BAUD", &config_cmd_baud },
@@ -274,6 +283,7 @@ const config_commands_t config_commands[] = {
 		{ "MODE", &config_cmd_mode },
 		{ "STA", &config_cmd_sta },
 		{ "AP", &config_cmd_ap },
+		{ "RST", &io_reset },
 		{ NULL, NULL }
 	};
 
