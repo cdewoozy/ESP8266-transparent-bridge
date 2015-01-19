@@ -34,11 +34,9 @@ static void ICACHE_FLASH_ATTR serverRecvCb(void *arg, char *data, unsigned short
 	serverConnData *conn=serverFindConnData(arg);
 	if (conn==NULL) return;
 
-#ifdef CONFIG_DYNAMIC
 	if (len >= 5 && data[0] == '+' && data[1] == '+' && data[2] == '+' && data[3] =='A' && data[4] == 'T') {
 		config_parse(conn->conn, data, len);
 	} else
-#endif
 		uart0_tx_buffer(data, len);
 }
 
@@ -72,7 +70,7 @@ static void ICACHE_FLASH_ATTR serverConnectCb(void *arg) {
 	}
 	connData[i].conn=conn;
 	connData[i].buff=NULL;
-
+	os_printf("Connected\n");
 	espconn_regist_recvcb(conn, serverRecvCb);
 	espconn_regist_reconcb(conn, serverReconCb);
 	espconn_regist_disconcb(conn, serverDisconCb);

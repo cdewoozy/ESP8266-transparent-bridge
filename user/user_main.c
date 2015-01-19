@@ -25,6 +25,7 @@
 #include "server.h"
 #include "config.h"
 #include "flash_param.h"
+#include "io.h"
 
 os_event_t recvTaskQueue[recvTaskQueueLen];
 extern serverConnData connData[MAX_CONN];
@@ -66,6 +67,7 @@ void user_init(void)
 	flash_param_t *flash_param = flash_param_get();
 	uart_init(flash_param->baud, BIT_RATE_115200);
 	os_printf("Serial baud rate: %d\n", flash_param->baud);
+	ioInit();
 
 	// refresh wifi config
 	config_execute(flash_param);
