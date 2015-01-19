@@ -1,5 +1,3 @@
-#ifndef CONFIG_PARSE_TEST_UNIT
-
 // this is the normal build target ESP include set
 #include "espmissingincludes.h"
 #include "c_types.h"
@@ -9,78 +7,13 @@
 #include "osapi.h"
 #include "driver/uart.h"
 
-#include "flash_param.h"
-
-#else
-
-// test unit target for config_parse
-// gcc -g -o config_test config.c -D CONFIG_PARSE_TEST_UNIT
-// ./config_test < config_test.cmd
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-
-struct espconn {
-	int dummy;
-};
-
-struct station_config {
-	uint8_t ssid[32];
-	uint8_t password[64];
-	uint8_t bssid_set;
-	uint8_t bssid[6];
-};
-
-struct softap_config {
-	uint8_t ssid[32];
-	uint8_t password[64];
-	uint8_t ssid_len;
-	uint8_t channel;
-	uint8_t authmode;
-	uint8_t ssid_hidden;
-	uint8_t max_connection;
-};
-
-#define os_sprintf	sprintf
-#define os_malloc	malloc
-#define os_strncpy	strncpy
-#define os_strncmp	strncmp
-#define os_free		free
-#define os_bzero	bzero
-#define os_memcpy	memcpy
-#define os_memset	memset
-
-#define espconn_sent(conn, buf, len)	printf(buf)
-
-#define AUTH_OPEN 0
-#define AUTH_WPA_PSK 2
-#define AUTH_WPA2_PSK 3
-
-#define wifi_get_opmode() (printf("wifi_get_opmode()\n") ? 2 : 2)
-#define wifi_set_opmode(mode) printf("wifi_set_opmode(%d)\n", mode)
-#define wifi_station_disconnect() printf("wifi_station_disconnect()\n")
-#define wifi_station_get_config(conf) { strncpy((conf)->ssid, "dummystassid", 32); strncpy((conf)->password, "dummystapassword", 64); }
-#define wifi_station_set_config(conf) printf("wifi_station_set_config(%s, %s)\n", (conf)->ssid, (conf)->password)
-#define wifi_station_connect() printf("wifi_station_connect()\n");
-#define wifi_get_macaddr(if, result) printf("wifi_get_mac_addr(SOFTAP_IF, macaddr)\n")
-#define wifi_softap_get_config(conf) { strncpy((conf)->ssid, "dummyapssid", 32); strncpy((conf)->password, "dummyappassword", 64); (conf)->authmode=AUTH_WPA_PSK; (conf)->channel=3; }
-#define wifi_softap_set_config(conf) printf("wifi_softap_set_config(%s, %s, %d, %d)\n", (conf)->ssid, (conf)->password, (conf)->authmode, (conf)->channel)
-#define system_restart() printf("system_restart()\n");
-#define ETS_UART_INTR_DISABLE()	printf("ETS_UART_INTR_DISABLE()\n");
-#define ETS_UART_INTR_ENABLE()	printf("ETS_UART_INTR_ENABLE()\n");
-
-#endif
-
 #include "config.h"
 
-#ifdef CONFIG_STATIC
-
-void config_execute(void) {
+void config_execute(flash_param_t *param) {
 	uint8_t mode;
+	uint8_t macaddr[6] = { 0, 0, 0, 0, 0, 0 };
 	struct station_config sta_conf;
 	struct softap_config ap_conf;
-	uint8_t macaddr[6] = { 0, 0, 0, 0, 0, 0 };
 
 	// make sure the device is in AP and STA combined mode
 	mode = wifi_get_opmode();
@@ -91,25 +24,25 @@ void config_execute(void) {
 	}
 
 	// connect to our station
-	os_bzero(&sta_conf, sizeof(struct station_config));
+	os_bzero(&sta_conf, sizeof(sta_conf));
 	wifi_station_get_config(&sta_conf);
-	os_strncpy(sta_conf.ssid, STA_SSID, sizeof(sta_conf.ssid));
-	os_strncpy(sta_conf.password, STA_PASSWORD, sizeof(sta_conf.password));
+	os_strncpy(sta_conf.ssid, param->sta_ssid, sizeof(sta_conf.ssid));
+	os_strncpy(sta_conf.password, param->sta_passwd, sizeof(sta_conf.password));
 	wifi_station_disconnect();
 	ETS_UART_INTR_DISABLE();
-	wifi_station_set_config(&sta_conf);		
+	wifi_station_set_config(&sta_conf);
 	ETS_UART_INTR_ENABLE();
 	wifi_station_connect();
 
 	// setup the soft AP
-	os_bzero(&ap_conf, sizeof(struct softap_config));
+	os_bzero(&ap_conf, sizeof(ap_conf));
 	wifi_softap_get_config(&ap_conf);
 	wifi_get_macaddr(SOFTAP_IF, macaddr);
-	os_strncpy(ap_conf.ssid, AP_SSID, sizeof(ap_conf.ssid));
-	ap_conf.ssid_len = strlen(AP_SSID);
-	os_strncpy(ap_conf.password, AP_PASSWORD, sizeof(ap_conf.password));
+	os_strncpy(ap_conf.ssid, param->ap_ssid, sizeof(ap_conf.ssid));
+	ap_conf.ssid_len = strlen(ap_conf.ssid);
+	os_strncpy(ap_conf.password, param->ap_passwd, sizeof(ap_conf.password));
 	//os_snprintf(&ap_conf.password[strlen(AP_PASSWORD)], sizeof(ap_conf.password) - strlen(AP_PASSWORD), "_%02X%02X%02X", macaddr[3], macaddr[4], macaddr[5]);
-	os_sprintf(ap_conf.password[strlen(AP_PASSWORD)], "_%02X%02X%02X", macaddr[3], macaddr[4], macaddr[5]);
+//	os_sprintf(ap_conf.password + strlen(ap_conf.password), "_%02X%02X%02X", macaddr[3], macaddr[4], macaddr[5]);
 	ap_conf.authmode = AUTH_WPA_PSK;
 	ap_conf.channel = 6;
 	ETS_UART_INTR_DISABLE(); 
@@ -117,19 +50,12 @@ void config_execute(void) {
 	ETS_UART_INTR_ENABLE();
 }
 
-#endif
-
-#ifdef CONFIG_DYNAMIC
-
 #define MSG_OK "OK\r\n"
 #define MSG_ERROR "ERROR\r\n"
 #define MSG_INVALID_CMD "UNKNOWN COMMAND\r\n"
 
 #define MAX_ARGS 12
 #define MSG_BUF_LEN 128
-
-#ifdef CONFIG_PARSE_TEST_UNIT
-#endif
 
 char *my_strdup(char *str) {
 	size_t len;
@@ -402,18 +328,3 @@ void config_parse(struct espconn *conn, char *buf, int len) {
 	config_parse_args_free(argc, argv);
 	os_free(lbuf);
 }
-
-#ifdef CONFIG_PARSE_TEST_UNIT
-const int max_line = 255;
-int main(int argc, char *argv[]) {
-	char line[max_line];
-
-	// read lines and feed them to config_parse
-	while (fgets(line, max_line, stdin) != NULL) {
-		uint8_t len = strlen(line);
-		config_parse(NULL, line, len);
-	}
-}
-#endif
-
-#endif

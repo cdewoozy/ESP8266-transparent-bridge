@@ -1,143 +1,178 @@
-#############################################################
-# Required variables for each makefile
-# Discard this section from all parent makefiles
-# Expected variables (with automatic defaults):
-#   CSRCS (all "C" files in the dir)
-#   SUBDIRS (all subdirs with a Makefile)
-#   GEN_LIBS - list of libs to be generated ()
-#   GEN_IMAGES - list of object file images to be generated ()
-#   GEN_BINS - list of binaries to be generated ()
-#   COMPONENTS_xxx - a list of libs/objs in the form
-#     subdir/lib to be extracted and rolled up into
-#     a generated lib/image xxx.a ()
+# tnx to mamalala
+# Changelog
+# Changed the variables to include the header file directory
+# Added global var for the XTENSA tool root
 #
-TARGET = eagle
-#FLAVOR = release
-FLAVOR = debug
+# This make file still needs some work.
+#
+#
+# Output directors to store intermediate compiled files
+# relative to the project directory
+BUILD_BASE	= build
+FW_BASE		= firmware
 
-#EXTRA_CCFLAGS += -u
+# Base directory for the compiler
+XTENSA_TOOLS_ROOT ?= /opt/Espressif/esp-open-sdk/xtensa-lx106-elf/bin
 
-ifndef PDIR # {
-GEN_IMAGES= eagle.app.v6.out
-GEN_BINS= eagle.app.v6.bin
-SPECIAL_MKTARGETS=$(APP_MKTARGETS)
-SUBDIRS=    \
-	user	\
-	driver
+# base directory of the ESP8266 SDK package, absolute
+SDK_BASE ?= /opt/Espressif/esp-open-sdk/sdk
 
-endif # } PDIR
+SDK_EXTRA_INCLUDES ?= $(SDK_BASE)/include
+SDK_EXTRA_LIBS ?= $(SDK_BASE)/lib
 
-APPDIR = .
-LDDIR = ../ld
 
-CCFLAGS += -Os
+#Esptool.py path and port
+ESPTOOL		?= esptool
+ESPTOOLPY	?= esptool.py
+ESPPORT		?= /dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0
+#ESPDELAY indicates seconds to wait between flashing the two binary images
+ESPDELAY	?= 3
+ESPBAUD		?= 115200
 
-TARGET_LDFLAGS =		\
-	-nostdlib		\
-	-Wl,-EL \
-	--longcalls \
-	--text-section-literals
+# name for the target project
+TARGET		= eagle
 
-ifeq ($(FLAVOR),debug)
-    TARGET_LDFLAGS += -g -O2
+# which modules (subdirectories) of the project to include in compiling
+#MODULES		= driver user lwip/api lwip/app lwip/core lwip/core/ipv4 lwip/netif
+MODULES		= driver user
+EXTRA_INCDIR	= include \
+		. \
+		lib/heatshrink/ \
+		$(SDK_EXTRA_INCLUDES)
+
+# libraries used in this project, mainly provided by the SDK
+LIBS		= c gcc hal phy pp net80211 wpa main lwip
+
+# compiler flags using during compilation of source files
+CFLAGS		= -Os -std=c99 -Wpointer-arith -Wl,-EL -fno-inline-functions \
+		-nostdlib -mlongcalls -mtext-section-literals  -D__ets__ -DICACHE_FLASH \
+		-Wno-address
+
+#CFLAGS		= -Os -ggdb -std=c99 -Werror -Wpointer-arith -Wundef -Wall -Wl,-EL -fno-inline-functions \
+#		-nostdlib -mlongcalls -mtext-section-literals  -D__ets__ -DICACHE_FLASH \
+#		-Wno-address
+
+# linker flags used to generate the main object file
+LDFLAGS		= -nostdlib -Wl,--no-check-sections -u call_user_start -Wl,-static -L$(SDK_EXTRA_LIBS)
+
+# linker script used for the above linkier step
+LD_SCRIPT	= eagle.app.v6.ld
+
+# various paths from the SDK used in this project
+SDK_LIBDIR	= lib
+SDK_LDDIR	= ld
+SDK_INCDIR	= include include/json
+
+# we create two different files for uploading into the flash
+# these are the names and options to generate them
+FW_FILE_1	= 0x00000
+FW_FILE_1_ARGS	= -bo $@ -bs .text -bs .data -bs .rodata -bc -ec
+FW_FILE_2	= 0x40000
+FW_FILE_2_ARGS	= -es .irom0.text $@ -ec
+
+# select which tools to use as compiler, librarian and linker
+CC		:= $(XTENSA_TOOLS_ROOT)/xtensa-lx106-elf-gcc
+AR		:= $(XTENSA_TOOLS_ROOT)/xtensa-lx106-elf-ar
+LD		:= $(XTENSA_TOOLS_ROOT)/xtensa-lx106-elf-gcc
+
+
+
+####
+#### no user configurable options below here
+####
+SRC_DIR		:= $(MODULES)
+BUILD_DIR	:= $(addprefix $(BUILD_BASE)/,$(MODULES))
+
+SDK_LIBDIR	:= $(addprefix $(SDK_BASE)/,$(SDK_LIBDIR))
+SDK_INCDIR	:= $(addprefix -I$(SDK_BASE)/,$(SDK_INCDIR))
+
+SRC		:= $(foreach sdir,$(SRC_DIR),$(wildcard $(sdir)/*.c))
+OBJ		:= $(patsubst %.c,$(BUILD_BASE)/%.o,$(SRC))
+LIBS		:= $(addprefix -l,$(LIBS))
+APP_AR		:= $(addprefix $(BUILD_BASE)/,$(TARGET)_app.a)
+TARGET_OUT	:= $(addprefix $(BUILD_BASE)/,$(TARGET).out)
+
+LD_SCRIPT	:= $(addprefix -T$(SDK_BASE)/$(SDK_LDDIR)/,$(LD_SCRIPT))
+
+INCDIR	:= $(addprefix -I,$(SRC_DIR))
+EXTRA_INCDIR	:= $(addprefix -I,$(EXTRA_INCDIR))
+MODULE_INCDIR	:= $(addsuffix /include,$(INCDIR))
+
+FW_FILE_1	:= $(addprefix $(FW_BASE)/,$(FW_FILE_1).bin)
+FW_FILE_2	:= $(addprefix $(FW_BASE)/,$(FW_FILE_2).bin)
+
+V ?= $(VERBOSE)
+ifeq ("$(V)","1")
+Q :=
+vecho := @true
+else
+Q := @
+vecho := @echo
 endif
 
-ifeq ($(FLAVOR),release)
-    TARGET_LDFLAGS += -g -O0
-endif
+vpath %.c $(SRC_DIR)
 
-LD_FILE = $(LDDIR)/eagle.app.v6.ld
+define compile-objects
+$1/%.o: %.c
+	$(vecho) "CC $$<"
+	$(CC) $(INCDIR) $(MODULE_INCDIR) $(EXTRA_INCDIR) $(SDK_INCDIR) $(CFLAGS)  -c $$< -o $$@
+endef
 
-ifeq ($(APP), 1)
-	LD_FILE = $(LDDIR)/eagle.app.v6.app1.ld
-endif
+.PHONY: all checkdirs clean
 
-ifeq ($(APP), 2)
-	LD_FILE = $(LDDIR)/eagle.app.v6.app2.ld
-endif
+all: checkdirs $(TARGET_OUT) $(FW_FILE_1) $(FW_FILE_2)
 
-COMPONENTS_eagle.app.v6 = \
-	user/libuser.a	\
-	driver/libdriver.a
+$(FW_FILE_1): $(TARGET_OUT) firmware
+	$(vecho) "FW $@"
+	$(ESPTOOL) -eo $(TARGET_OUT) $(FW_FILE_1_ARGS)
 
-LINKFLAGS_eagle.app.v6 = \
-	-L../lib        \
-	-nostdlib	\
-    -T$(LD_FILE)   \
-	-Wl,--no-check-sections	\
-    -u call_user_start	\
-	-Wl,-static						\
-	-Wl,--start-group					\
-	-lc					\
-	-lgcc					\
-	-lhal					\
-	-lphy	\
-	-lpp	\
-	-lnet80211	\
-	-llwip	\
-	-lwpa	\
-	-lmain	\
-	-ljson	\
-	-lupgrade\
-	$(DEP_LIBS_eagle.app.v6)					\
-	-Wl,--end-group
+$(FW_FILE_2): $(TARGET_OUT) firmware
+	$(vecho) "FW $@"
+	$(ESPTOOL) -eo $(TARGET_OUT) $(FW_FILE_2_ARGS)
 
-DEPENDS_eagle.app.v6 = \
-                $(LD_FILE) \
-                $(LDDIR)/eagle.rom.addr.v6.ld
+$(TARGET_OUT): $(APP_AR)
+	$(vecho) "LD $@"
+	$(LD) -L$(SDK_LIBDIR) $(LD_SCRIPT) $(LDFLAGS) -Wl,--start-group $(LIBS) $(APP_AR) -Wl,--end-group -o $@
 
-#############################################################
-# Configuration i.e. compile options etc.
-# Target specific stuff (defines etc.) goes in here!
-# Generally values applying to a tree are captured in the
-#   makefile at its root level - these are then overridden
-#   for a subtree within the makefile rooted therein
-#
+$(APP_AR): $(OBJ)
+	$(vecho) "AR $@"
+	$(AR) cru $@ $^
 
-#UNIVERSAL_TARGET_DEFINES =		\
+checkdirs: $(BUILD_DIR) $(FW_BASE)
 
-# Other potential configuration flags include:
-#	-DTXRX_TXBUF_DEBUG
-#	-DTXRX_RXBUF_DEBUG
-#	-DWLAN_CONFIG_CCX
-CONFIGURATION_DEFINES =	-D__ets__ \
-			-DICACHE_FLASH
+$(BUILD_DIR):
+	mkdir -p $@
 
-DEFINES +=				\
-	$(UNIVERSAL_TARGET_DEFINES)	\
-	$(CONFIGURATION_DEFINES)
+firmware:
+	mkdir -p $@
 
-DDEFINES +=				\
-	$(UNIVERSAL_TARGET_DEFINES)	\
-	$(CONFIGURATION_DEFINES)
+flash: $(FW_FILE_1) $(FW_FILE_2)
+	$(ESPTOOLPY) --port $(ESPPORT) write_flash 0x00000 firmware/0x00000.bin 0x40000 firmware/0x40000.bin
+#	$(ESPTOOL) -cp $(ESPPORT) -cb $(ESPBAUD) -ca 0x00000 -cf firmware/0x00000.bin -v
+#	[ $(ESPDELAY) -ne 0 ] && echo "Please put the ESP in bootloader mode..." || true
+#	sleep $(ESPDELAY) || true
+#	$(ESPTOOL) -cp $(ESPPORT) -cb $(ESPBAUD) -ca 0x40000 -cf firmware/0x40000.bin -v
+
+webpages.espfs: html/ html/wifi/ mkespfsimage/mkespfsimage
+	cd html; find | ../mkespfsimage/mkespfsimage > ../webpages.espfs; cd ..
+
+mkespfsimage/mkespfsimage: mkespfsimage/
+	make -C mkespfsimage
+
+htmlflash: webpages.espfs
+	if [ $$(stat -c '%s' webpages.espfs) -gt $$(( 0x2E000 )) ]; then echo "webpages.espfs too big!"; false; fi
+	$(ESPTOOLPY) --port $(ESPPORT) write_flash 0x12000 webpages.espfs
+#	if [ $$(stat -c '%s' webpages.espfs) -gt $$(( 0x2E000 )) ]; then echo "webpages.espfs too big!"; false; fi
+#	$(ESPTOOL) -cp $(ESPPORT) -cb $(ESPBAUD) -ca 0x12000 -cf webpages.espfs -v
+
+clean:
+	rm -f $(APP_AR)
+	rm -f $(TARGET_OUT)
+	find $(BUILD_BASE) -type f | xargs rm -f
 
 
-#############################################################
-# Recursion Magic - Don't touch this!!
-#
-# Each subtree potentially has an include directory
-#   corresponding to the common APIs applicable to modules
-#   rooted at that subtree. Accordingly, the INCLUDE PATH
-#   of a module can only contain the include directories up
-#   its parent path, and not its siblings
-#
-# Required for each makefile to inherit from the parent
-#
+	rm -f $(FW_FILE_1)
+	rm -f $(FW_FILE_2)
+	rm -rf $(FW_BASE)
 
-INCLUDES := $(INCLUDES) -I $(PDIR)include
-INCLUDES += -I ./
-PDIR := ../$(PDIR)
-sinclude $(PDIR)Makefile
-
-#########################################################################
-#
-#  generate bin file
-#
-
-$(BINODIR)/%.bin: $(IMAGEODIR)/%.out
-	@mkdir -p $(BINODIR)
-	$(OBJCOPY) -O binary $< $@
-
-.PHONY: FORCE
-FORCE:
-
+$(foreach bdir,$(BUILD_DIR),$(eval $(call compile-objects,$(bdir))))

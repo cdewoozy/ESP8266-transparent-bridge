@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License along
  * with this program.	If not, see <http://www.gnu.org/licenses/>.
  */
+#include <user_interface.h>
 #include "ets_sys.h"
 #include "os_type.h"
 #include "osapi.h"
@@ -25,7 +26,7 @@
 #include "config.h"
 #include "flash_param.h"
 
-os_event_t		recvTaskQueue[recvTaskQueueLen];
+os_event_t recvTaskQueue[recvTaskQueueLen];
 extern serverConnData connData[MAX_CONN];
 
 static void ICACHE_FLASH_ATTR recvTask(os_event_t *events)
@@ -44,7 +45,7 @@ static void ICACHE_FLASH_ATTR recvTask(os_event_t *events)
 				espconn_sent(connData[i].conn, &c, 1);
 			}
 		}
-//	echo		
+//	echo
 //	uart_tx_one_char(c);
 	}
 
@@ -61,31 +62,15 @@ static void ICACHE_FLASH_ATTR recvTask(os_event_t *events)
 
 void user_init(void)
 {
-	uint8_t i;
+	system_set_os_print(1);
+	flash_param_t *flash_param = flash_param_get();
+	uart_init(flash_param->baud, BIT_RATE_115200);
+	os_printf("Serial baud rate: %d\n", flash_param->baud);
 
+	// refresh wifi config
+	config_execute(flash_param);
 
-	#ifdef CONFIG_DYNAMIC
-		flash_param_t *flash_param;
-		flash_param_init();
-		flash_param = flash_param_get();
-		uart_init(flash_param->baud, BIT_RATE_115200);
-	#else
-		uart_init(BIT_RATE_115200, BIT_RATE_115200);
-	#endif
-
-	#ifdef CONFIG_STATIC
-		// refresh wifi config
-		config_execute();
-	#endif
-
-	#ifdef CONFIG_DYNAMIC
-		serverInit(flash_param->port);
-	#else
-		serverInit(23);
-	#endif
-
-	for (i = 0; i < 16; ++i)
-		uart0_sendStr("\r\n");
+	serverInit(flash_param->port);
 
 	system_os_task(recvTask, recvTaskPrio, recvTaskQueue, recvTaskQueueLen);
 }

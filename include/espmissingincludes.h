@@ -12,6 +12,7 @@ void ets_isr_attach(int intr, void *handler, void *arg);
 void ets_isr_mask(unsigned intr);
 void ets_isr_unmask(unsigned intr);
 int ets_memcmp(const void *s1, const void *s2, size_t n);
+void *ets_bzero(void *dest, size_t n);
 void *ets_memcpy(void *dest, const void *src, size_t n);
 void *ets_memset(void *s, int c, size_t n);
 int ets_sprintf(char *str, const char *format, ...)  __attribute__ ((format (printf, 2, 3)));
