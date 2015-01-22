@@ -6,7 +6,7 @@
 #include "mem.h"
 #include "osapi.h"
 #include "driver/uart.h"
-#include "driver/gpio16.h"
+#include <gpio.h>
 
 #include "config.h"
 
@@ -124,13 +124,12 @@ void config_cmd_baud(struct espconn *conn, uint8_t argc, char *argv[]) {
 					break;
 				}
 			}
-			os_delay_us(10000);
+			os_printf("Set baud to %d\n", baud);
+			os_delay_us(1000);
 			uart_div_modify(0, UART_CLK_FREQ / baud);
 			flash_param->baud = baud;
-			if (flash_param_set())
-				espconn_sent(conn, MSG_OK, strlen(MSG_OK));
-			else
-				espconn_sent(conn, MSG_ERROR, strlen(MSG_ERROR));
+			flash_param_set();
+			espconn_sent(conn, MSG_OK, strlen(MSG_OK));
 		}
 	}
 }
@@ -153,10 +152,8 @@ void config_cmd_port(struct espconn *conn, uint8_t argc, char *argv[]) {
 		} else {
 			if (port != flash_param->port) {
 				flash_param->port = port;
-				if (flash_param_set())
-					espconn_sent(conn, MSG_OK, strlen(MSG_OK));
-				else
-					espconn_sent(conn, MSG_ERROR, strlen(MSG_ERROR));
+				flash_param_set();
+				espconn_sent(conn, MSG_OK, strlen(MSG_OK));
 				os_delay_us(10000);
 				system_restart();
 			} else {
@@ -270,9 +267,10 @@ void config_cmd_ap(struct espconn *conn, uint8_t argc, char *argv[]) {
 
 // spaces are not supported in the ssid or password
 void io_reset(struct espconn *conn, uint8_t argc, char *argv[]) {
-	gpio16_output_set(0);
+	GPIO_OUTPUT_SET(5, 0);
+	os_printf("Reset 5\n");
 	os_delay_us(1000000L);
-	gpio16_output_set(1);
+	GPIO_OUTPUT_SET(5, 1);
 	espconn_sent(conn, MSG_OK, strlen(MSG_OK));
 }
 
@@ -283,7 +281,7 @@ const config_commands_t config_commands[] = {
 		{ "MODE", &config_cmd_mode },
 		{ "STA", &config_cmd_sta },
 		{ "AP", &config_cmd_ap },
-		{ "RST", &io_reset },
+		{ "IORST", &io_reset },
 		{ NULL, NULL }
 	};
 

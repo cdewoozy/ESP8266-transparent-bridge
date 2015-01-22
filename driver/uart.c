@@ -18,7 +18,6 @@
 #include "ets_sys.h"
 #include "osapi.h"
 #include "driver/uart.h"
-#include "osapi.h"
 #include "driver/uart_register.h"
 //#include "ssc.h"
 #include "task.h"
@@ -113,6 +112,30 @@ uart_tx_one_char(uint8 uart, uint8 TxChar)
 
     WRITE_PERI_REG(UART_FIFO(uart) , TxChar);
     return OK;
+}
+
+/******************************************************************************
+ * FunctionName : uart0_write_char
+ * Description  : Internal used function
+ *                Do some special deal while tx char is '\r' or '\n'
+ * Parameters   : char c - character to tx
+ * Returns      : NONE
+*******************************************************************************/
+LOCAL void ICACHE_FLASH_ATTR
+uart0_write_char(char c)
+{
+  if (c == '\n')
+  {
+    uart_tx_one_char(UART0, '\r');
+    uart_tx_one_char(UART0, '\n');
+  }
+  else if (c == '\r')
+  {
+  }
+  else
+  {
+    uart_tx_one_char(UART0, c);
+  }
 }
 
 /******************************************************************************
@@ -285,7 +308,7 @@ uart_init(UartBautRate uart0_br, UartBautRate uart1_br)
   ETS_UART_INTR_ENABLE();
 
   // install uart1 putc callback
-  os_install_putc1((void *)uart1_write_char);
+  os_install_putc1((void *)uart0_write_char);
 }
 
 void ICACHE_FLASH_ATTR

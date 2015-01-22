@@ -55,14 +55,8 @@ flash_param_t *ICACHE_FLASH_ATTR flash_param_get(void)
 	return &flash_param;
 }
 
-int ICACHE_FLASH_ATTR flash_param_set(void)
+void ICACHE_FLASH_ATTR flash_param_set()
 {
 	flash_param_write(&flash_param);
-	flash_param_t tmp;
-	flash_param_read(&tmp);
-	if (memcmp(&tmp, &flash_param, sizeof(flash_param_t)) != 0) {
-		return 0;
-	}
-	return 1;
 }
 

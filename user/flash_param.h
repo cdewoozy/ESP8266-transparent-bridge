@@ -16,6 +16,6 @@ typedef struct _flash_param {
 } flash_param_t;
 
 flash_param_t *flash_param_get(void);
-int flash_param_set(void);
+void flash_param_set();
 
 #endif /* __FLASH_PARAM_H__ */

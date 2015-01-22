@@ -24,6 +24,7 @@ SDK_EXTRA_LIBS ?= $(SDK_BASE)/lib
 #Esptool.py path and port
 ESPTOOL		?= esptool
 ESPTOOLPY	?= esptool.py
+#ESPPORT		?= /dev/ttyUSB0
 ESPPORT		?= /dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0
 #ESPDELAY indicates seconds to wait between flashing the two binary images
 ESPDELAY	?= 3

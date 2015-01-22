@@ -29,15 +29,20 @@ static void ICACHE_FLASH_ATTR serverSentCb(void *arg) {
 }
 
 static void ICACHE_FLASH_ATTR serverRecvCb(void *arg, char *data, unsigned short len) {
-	int x;
+	int x, i;
 	char *p, *e;
 	serverConnData *conn=serverFindConnData(arg);
 	if (conn==NULL) return;
 
 	if (len >= 5 && data[0] == '+' && data[1] == '+' && data[2] == '+' && data[3] =='A' && data[4] == 'T') {
 		config_parse(conn->conn, data, len);
-	} else
+	} else {
 		uart0_tx_buffer(data, len);
+		for(i=0; i<len; i++) {
+			os_printf(">> 0x%2.2X ", data[i]);
+		}
+		os_printf("\r\n");
+	}
 }
 
 static void ICACHE_FLASH_ATTR serverReconCb(void *arg, sint8 err) {

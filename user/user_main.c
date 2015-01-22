@@ -25,7 +25,7 @@
 #include "server.h"
 #include "config.h"
 #include "flash_param.h"
-#include "driver/gpio16.h"
+#include <gpio.h>
 
 os_event_t recvTaskQueue[recvTaskQueueLen];
 extern serverConnData connData[MAX_CONN];
@@ -43,9 +43,11 @@ static void ICACHE_FLASH_ATTR recvTask(os_event_t *events)
 
 		for (i = 0; i < MAX_CONN; ++i) {
 			if (connData[i].conn) {
+				os_printf("<< 0x%2.2X ", c);
 				espconn_sent(connData[i].conn, &c, 1);
 			}
 		}
+		os_printf("\r\n");
 //	echo
 //	uart_tx_one_char(c);
 	}
@@ -61,14 +63,45 @@ static void ICACHE_FLASH_ATTR recvTask(os_event_t *events)
 	ETS_UART_INTR_ENABLE();
 }
 
+void ds_init()
+{
+	gpio_init();
+
+  //Set GPIO2 to output mode
+  PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2);
+  PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTDI_U, FUNC_GPIO12);
+//  PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTDO_U, FUNC_GPIO15);
+  PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTCK_U, FUNC_GPIO13);
+  PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTMS_U, FUNC_GPIO14);
+//  PIN_FUNC_SELECT(PERIPHS_IO_MUX_XPD_DCDC_U, FUNC_GPIO16);
+
+
+
+
+	//set gpio5 as gpio pin
+	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO5_U, FUNC_GPIO5);
+
+	//disable pulldown
+	PIN_PULLDWN_DIS(PERIPHS_IO_MUX_GPIO5_U);
+
+	//enable pull up R
+	PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO5_U);
+
+}
+
+
 void user_init(void)
 {
 	system_set_os_print(1);
 	flash_param_t *flash_param = flash_param_get();
 	uart_init(flash_param->baud, BIT_RATE_115200);
 	os_printf("Serial baud rate: %d\n", flash_param->baud);
-	gpio16_output_conf();
-	gpio16_output_set(1);
+	ds_init();
+	GPIO_OUTPUT_SET(5, 1);
+	os_delay_us(10000);
+	GPIO_OUTPUT_SET(5, 0);
+	os_delay_us(10000);
+	GPIO_OUTPUT_SET(5, 1);
 
 	// refresh wifi config
 	config_execute(flash_param);
