@@ -29,6 +29,7 @@ void config_execute(flash_param_t *param) {
 	wifi_station_get_config(&sta_conf);
 	os_strncpy(sta_conf.ssid, param->sta_ssid, sizeof(sta_conf.ssid));
 	os_strncpy(sta_conf.password, param->sta_passwd, sizeof(sta_conf.password));
+	os_printf("ssid=%s\n", sta_conf.ssid);
 	wifi_station_disconnect();
 	ETS_UART_INTR_DISABLE();
 	wifi_station_set_config(&sta_conf);
@@ -208,6 +209,7 @@ void config_cmd_sta(struct espconn *conn, uint8_t argc, char *argv[]) {
 	os_bzero(&sta_conf, sizeof(struct station_config));
 	wifi_station_get_config(&sta_conf);
 
+		os_printf("SSID=%s PASSWORD=%s\n", sta_conf.ssid, sta_conf.password);
 	if (argc == 0) {
 		char buf[MSG_BUF_LEN];
 		uint8_t len;

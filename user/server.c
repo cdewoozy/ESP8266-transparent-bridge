@@ -4,6 +4,7 @@
 #include "espconn.h"
 #include "mem.h"
 #include "osapi.h"
+#include <gpio.h>
 
 #include "server.h"
 #include "config.h"
@@ -11,6 +12,8 @@
 static struct espconn serverConn;
 static esp_tcp serverTcp;
 serverConnData connData[MAX_CONN];
+
+static bool reset_sent;
 
 static serverConnData ICACHE_FLASH_ATTR *serverFindConnData(void *arg) {
 	int i;
@@ -39,9 +42,17 @@ static void ICACHE_FLASH_ATTR serverRecvCb(void *arg, char *data, unsigned short
 	} else {
 		uart0_tx_buffer(data, len);
 		for(i=0; i<len; i++) {
-			os_printf(">> 0x%2.2X ", data[i]);
+			os_printf(">> 0x%2X ", data[i]);
 		}
 		os_printf("\r\n");
+		if( len == 2 && data[0] == 0x30 && data[1] == 0x20 && ! reset_sent ) {
+			// send reset to arduino
+	GPIO_OUTPUT_SET(5, 0);
+	os_printf("Send Reset\n");
+	os_delay_us(1000000L);
+	GPIO_OUTPUT_SET(5, 1);
+			reset_sent = true;
+		}
 	}
 }
 
@@ -76,6 +87,7 @@ static void ICACHE_FLASH_ATTR serverConnectCb(void *arg) {
 	connData[i].conn=conn;
 	connData[i].buff=NULL;
 	os_printf("Connected\n");
+	reset_sent = false;
 	espconn_regist_recvcb(conn, serverRecvCb);
 	espconn_regist_reconcb(conn, serverReconCb);
 	espconn_regist_disconcb(conn, serverDisconCb);

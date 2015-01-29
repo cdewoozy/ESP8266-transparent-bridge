@@ -1,7 +1,7 @@
 #ifndef __FLASH_PARAM_H__
 #define __FLASH_PARAM_H__
 
-#define FLASH_PARAM_MAGIC	8256
+#define FLASH_PARAM_MAGIC	0x8251
 #define FLASH_PARAM_VERSION	3
 
 typedef struct _flash_param {

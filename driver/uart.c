@@ -158,7 +158,12 @@ uart1_write_char(char c)
   }
   else
   {
-    uart_tx_one_char(UART1, c);
+	uart_tx_one_char(UART1, c);
+//  char buf[20];
+//	os_sprintf(buf, "0x%x ", c);
+//	for(int i=0; i<strlen(buf); i++) {
+//	    uart_tx_one_char(UART0, buf[i]);
+//	}
   }
 }
 /******************************************************************************
@@ -308,13 +313,14 @@ uart_init(UartBautRate uart0_br, UartBautRate uart1_br)
   ETS_UART_INTR_ENABLE();
 
   // install uart1 putc callback
-  os_install_putc1((void *)uart0_write_char);
+//  os_install_putc1((void *)uart0_write_char);
+  os_install_putc1((void *)uart1_write_char);
 }
 
 void ICACHE_FLASH_ATTR
 uart_reattach()
 {
 	uart_init(BIT_RATE_74880, BIT_RATE_74880);
-//  ETS_UART_INTR_ATTACH(uart_rx_intr_handler_ssc,  &(UartDev.rcv_buff));
-//  ETS_UART_INTR_ENABLE();
+//	ETS_UART_INTR_ATTACH(uart_rx_intr_handler_ssc,  &(UartDev.rcv_buff));
+//	ETS_UART_INTR_ENABLE();
 }
