@@ -201,6 +201,22 @@ uart0_sendStr(const char *str)
 }
 
 /******************************************************************************
+ * FunctionName : uart1_sendStr
+ * Description  : use uart1 to transfer buffer
+ * Parameters   : uint8 *buf - point to send buffer
+ *                uint16 len - buffer len
+ * Returns      :
+*******************************************************************************/
+void ICACHE_FLASH_ATTR
+uart1_sendStr(const char *str)
+{
+	while(*str)
+	{
+		uart_tx_one_char(UART1, *str++);
+	}
+}
+
+/******************************************************************************
  * FunctionName : uart0_rx_intr_handler
  * Description  : Internal used function
  *                UART0 interrupt handler, add self handle code inside
@@ -323,4 +339,6 @@ uart_reattach()
 	uart_init(BIT_RATE_74880, BIT_RATE_74880);
 //	ETS_UART_INTR_ATTACH(uart_rx_intr_handler_ssc,  &(UartDev.rcv_buff));
 //	ETS_UART_INTR_ENABLE();
+    // install uart1 putc callback
+    os_install_putc1((void *)uart1_write_char);
 }

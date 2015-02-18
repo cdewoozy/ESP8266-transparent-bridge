@@ -5,6 +5,7 @@
 #include "mem.h"
 #include "osapi.h"
 #include <gpio.h>
+#include <driver/uart.h>
 
 #include "server.h"
 #include "config.h"
@@ -47,10 +48,10 @@ static void ICACHE_FLASH_ATTR serverRecvCb(void *arg, char *data, unsigned short
 		os_printf("\r\n");
 		if( len == 2 && data[0] == 0x30 && data[1] == 0x20 && ! reset_sent ) {
 			// send reset to arduino
-	GPIO_OUTPUT_SET(5, 0);
-	os_printf("Send Reset\n");
-	os_delay_us(1000000L);
-	GPIO_OUTPUT_SET(5, 1);
+//	GPIO_OUTPUT_SET(5, 0);
+//	os_printf("Send Reset\n");
+//	os_delay_us(1000000L);
+//	GPIO_OUTPUT_SET(5, 1);
 			reset_sent = true;
 		}
 	}

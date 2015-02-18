@@ -113,7 +113,9 @@ typedef struct {
 } UartDevice;
 
 void uart_init(UartBautRate uart0_br, UartBautRate uart1_br);
-void uart0_sendStr(const char *str);
+void ICACHE_FLASH_ATTR uart0_sendStr(const char *str);
+void ICACHE_FLASH_ATTR uart1_sendStr(const char *str);
+void ICACHE_FLASH_ATTR uart0_tx_buffer(uint8 *buf, uint16 len);
 
 #endif
 
